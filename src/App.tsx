@@ -24,7 +24,8 @@ import {
   Star,
   MessageCircle,
   Copy,
-  Check
+  Check,
+  Quote
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -340,6 +341,80 @@ const HomePage = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
         </div>
       </section>
 
+      {/* School Leadership Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-forest-green mb-4">Our School Leadership</h2>
+            <div className="w-24 h-1 bg-golden-yellow mx-auto"></div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+            {/* Director */}
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="relative group"
+            >
+              <div className="relative overflow-hidden rounded-3xl shadow-xl aspect-[4/5]">
+                <img 
+                  src="https://lh3.googleusercontent.com/d/1VQicGbvHSdfIu0zPKyL2Odw09CRtMBfy" 
+                  alt="Director of Green View School" 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-forest-green via-transparent to-transparent opacity-90"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+                  <Quote className="text-golden-yellow w-10 h-10 mb-4 opacity-50" />
+                  <h3 className="text-2xl font-bold mb-1">Director's Message</h3>
+                  <p className="text-golden-yellow font-semibold mb-4">Green View School Eldama Ravine</p>
+                  <p className="text-sm text-gray-200 line-clamp-3 italic">
+                    "At Green View School, we believe that education is more than just academic success; it's about nurturing the heart and mind. Our commitment is to provide a holistic learning environment where every student feels valued, challenged, and inspired."
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Headmaster */}
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="relative group"
+            >
+              <div className="relative overflow-hidden rounded-3xl shadow-xl aspect-[4/5]">
+                <img 
+                  src="https://lh3.googleusercontent.com/d/1vt0ernyOBdXOxWeRIXwclFTqui_0NwAR" 
+                  alt="Headmaster of Green View School" 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-forest-green via-transparent to-transparent opacity-90"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+                  <Quote className="text-golden-yellow w-10 h-10 mb-4 opacity-50" />
+                  <h3 className="text-2xl font-bold mb-1">Headmaster's Message</h3>
+                  <p className="text-golden-yellow font-semibold mb-4">Green View School Eldama Ravine</p>
+                  <p className="text-sm text-gray-200 line-clamp-3 italic">
+                    "As the Headmaster of Green View School, I am honored to lead a team of dedicated educators who are passionate about student success. Our focus is on creating a disciplined yet supportive environment where every child can flourish academically and socially."
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div className="mt-16 text-center">
+            <button 
+              onClick={() => setActivePage('about')}
+              className="inline-flex items-center bg-forest-green text-white px-10 py-4 rounded-xl font-bold hover:bg-golden-yellow hover:text-forest-green transition-all shadow-lg group"
+            >
+              Read Full Leadership Messages <ChevronRight className="ml-2 group-hover:translate-x-2 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Wall of Fame & Academic Excellence */}
       <section className="py-24 bg-gray-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -529,6 +604,58 @@ const AboutPage = () => {
                 "To provide a safe, nurturing, and challenging learning environment that fosters discipline, integrity, and academic success through the CBC and Junior Secondary School curriculum."
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-forest-green mb-4">School Leadership</h2>
+            <p className="text-gray-600">Dedicated to guiding our students towards excellence</p>
+            <div className="w-24 h-1 bg-golden-yellow mx-auto mt-4"></div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div 
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute -top-6 -left-6 w-32 h-32 bg-golden-yellow rounded-full -z-10 opacity-20"></div>
+              <img 
+                src="https://lh3.googleusercontent.com/d/1vt0ernyOBdXOxWeRIXwclFTqui_0NwAR" 
+                alt="Headmaster of Green View School" 
+                className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/5]"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute bottom-8 left-8 right-8 bg-white/90 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-white/20">
+                <h3 className="text-2xl font-bold text-forest-green">Headmaster's Message</h3>
+                <p className="text-golden-yellow font-semibold">Green View School Eldama Ravine</p>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="text-4xl font-bold text-forest-green mb-8 leading-tight">
+                Leading with Vision and Purpose
+              </h2>
+              <div className="space-y-6 text-gray-700 text-lg leading-relaxed">
+                <p>
+                  As the Headmaster of Green View School, I am honored to lead a team of dedicated educators who are passionate about student success. Our focus is on creating a disciplined yet supportive environment where every child can flourish academically and socially.
+                </p>
+                <p>
+                  We believe in the power of the CBC and JSS curriculum to transform lives. By integrating modern teaching methods with traditional values, we prepare our students to be critical thinkers and compassionate citizens.
+                </p>
+                <p className="font-bold text-forest-green italic">
+                  "Excellence is not an act, but a habit. We strive to make excellence a habit for every student at Green View."
+                </p>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
