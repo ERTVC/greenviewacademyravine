@@ -258,10 +258,10 @@ const HomePage = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
           <img 
             src="https://lh3.googleusercontent.com/d/1xy2MVZiyeYs2ftglT6MpQjAt5G_sK8mA" 
             alt="Green View School Campus" 
-            className="w-full h-full object-cover brightness-50"
+            className="w-full h-full object-cover brightness-75"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-forest-green/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-forest-green/60 to-transparent"></div>
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-white">
