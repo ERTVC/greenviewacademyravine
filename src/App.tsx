@@ -25,9 +25,15 @@ import {
   MessageCircle,
   Copy,
   Check,
-  Quote
+  Quote,
+  Bot,
+  Send,
+  Bus,
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
 
 // --- Types ---
 type Page = 'home' | 'about' | 'academics' | 'admissions' | 'gallery' | 'contact';
@@ -35,9 +41,230 @@ type Page = 'home' | 'about' | 'academics' | 'admissions' | 'gallery' | 'contact
 // --- Constants & Helpers ---
 const WHATSAPP_NUMBER = "254711894460";
 
+const WhatsAppIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.414 0 .004 5.411.001 12.045a11.971 11.971 0 001.592 6.011L0 24l6.117-1.605a11.945 11.945 0 005.933 1.568h.005c6.637 0 12.045-5.411 12.048-12.046a11.85 11.85 0 00-3.536-8.514z"/>
+  </svg>
+);
+
 const openWhatsApp = (message: string) => {
   const encodedMessage = encodeURIComponent(message);
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`, '_blank');
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+};
+
+const AdmissionAssistant = () => {
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
+    { role: 'ai', text: "Hello! I'm your Green View School Admission Assistant. Not sure which grade is right for your child? Tell me their age or current level, and I'll help you out!" }
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setIsLoading(true);
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Gemini API key is not configured.");
+      }
+      const ai = new GoogleGenAI({ apiKey });
+      const model = "gemini-3-flash-preview";
+      const response = await ai.models.generateContent({
+        model,
+        contents: userMessage,
+        config: {
+          systemInstruction: `You are the Admission Assistant for Green View School in Eldama Ravine, Baringo County, Kenya. 
+          Your goal is to help parents with grade placement, curriculum information, and general school inquiries.
+          
+          School Details:
+          - Name: Green View School (also known as Green View Academy).
+          - Location: Milimani Court Area, Eldama Ravine (Near NCPB).
+          - Motto: "Strive for Excellence".
+          - Vision: "To be a premier institution of academic excellence and holistic development, nurturing responsible and innovative leaders for the future."
+          - Mission: "To provide a safe, nurturing, and challenging learning environment that fosters discipline, integrity, and academic success through the CBC and Junior Secondary School curriculum."
+          - Core Values: Quality Instruction, Transparency, Safety, and Integrity.
+          - History: 15+ years of excellence in education.
+          
+          Academic Programs:
+          - Early Years: PP1 (4 years old) and PP2 (5 years old).
+          - Primary School: Grade 1 to 6 (CBC Curriculum).
+          - Junior Secondary School (JSS): Grade 7 to 9.
+          - Known for top performance in KCPE (e.g., Alan Kiplagat with 421 marks).
+          
+          Facilities & Services:
+          - Reliable school bus service covering Eldama Ravine and its environs.
+          - Modern classrooms, Science Laboratory for JSS, and a safe playground.
+          - Extracurriculars: Music, Drama, Athletics, and various Clubs.
+          
+          Placement Logic:
+          - 4 years: PP1
+          - 5 years: PP2
+          - 6 years: Grade 1
+          - 7 years: Grade 2
+          - 8 years: Grade 3
+          - 9 years: Grade 4
+          - 10 years: Grade 5
+          - 11 years: Grade 6
+          - 12 years: Grade 7 (JSS)
+          
+          Guidelines:
+          - Be polite, professional, and encouraging.
+          - Mention the school bus if the parent asks about transport.
+          - If asked about fees, provide general info (competitive/affordable) but refer them to the admissions office for the latest fee structure.
+          - Encourage them to visit the school or contact the office at +254 711 894 460.
+          - Keep responses concise and helpful.`
+        }
+      });
+
+      const aiText = response.text || "I'm sorry, I couldn't process that. Please try again or contact our office.";
+      setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
+    } catch (error) {
+      console.error("AI Error:", error);
+      setMessages(prev => [...prev, { role: 'ai', text: "I'm having a little trouble connecting right now. Please try again later or call us directly!" }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col h-[500px]">
+      <div className="bg-forest-green p-6 text-white flex items-center gap-4">
+        <div className="bg-golden-yellow p-2 rounded-xl text-forest-green">
+          <Bot size={24} />
+        </div>
+        <div>
+          <h3 className="font-bold">Admission Assistant</h3>
+          <p className="text-xs text-gray-300">AI-Powered Guidance</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${
+              msg.role === 'user' 
+                ? 'bg-forest-green text-white rounded-tr-none' 
+                : 'bg-white text-gray-700 shadow-sm border border-gray-100 rounded-tl-none'
+            }`}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 bg-white border-t border-gray-100 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Ask about grade placement..."
+            className="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-forest-green outline-none"
+          />
+          <button 
+            onClick={handleSend}
+            disabled={isLoading}
+            className="bg-forest-green text-white p-3 rounded-xl hover:bg-golden-yellow hover:text-forest-green transition-all disabled:opacity-50"
+          >
+            <Send size={20} />
+          </button>
+        </div>
+        <a 
+          href={openWhatsApp("Hello, I'm interested in enrolling my child at Green View School. I used your AI assistant and would like to speak to a human.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 text-xs font-bold text-forest-green hover:text-golden-yellow transition-colors py-1"
+        >
+          <WhatsAppIcon size={14} />
+          Speak to a Human on WhatsApp
+        </a>
+      </div>
+    </div>
+  );
+};
+
+const FacilitiesGallery = () => {
+  const facilities = [
+    {
+      title: "Reliable School Bus",
+      desc: "Safe and timely transport for students across Eldama Ravine.",
+      image: "https://lh3.googleusercontent.com/d/1VyPsxcrmYGch1cqzCRoebXuD6vkXjY0B"
+    },
+    {
+      title: "PP2 Graduation",
+      desc: "Celebrating our little ones as they transition to Primary School.",
+      image: "https://lh3.googleusercontent.com/d/1kygBrSZB3e-oH3b3wK7Y2HGFzzzboA2P"
+    },
+    {
+      title: "Modern Classrooms",
+      desc: "Conducive learning environments equipped for CBC success.",
+      image: "https://lh3.googleusercontent.com/d/1NQ2bjYcTZxqf-ciye9D8iDWOKmY4gJ38"
+    },
+    {
+      title: "Science Laboratory",
+      desc: "Hands-on learning for our Junior Secondary School students.",
+      image: "https://lh3.googleusercontent.com/d/1v0fteUpoL2ItE2kY7CQ7RbRWYAA1gCzS"
+    }
+  ];
+
+  return (
+    <section className="py-24 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-forest-green mb-4">Our Facilities & School Life</h2>
+          <div className="w-24 h-1 bg-golden-yellow mx-auto"></div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {facilities.map((item, i) => (
+            <motion.div 
+              key={i}
+              whileHover={{ y: -5 }}
+              className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 group"
+            >
+              <div className="h-48 overflow-hidden relative">
+                <img 
+                  src={item.image} 
+                  alt={item.title} 
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-forest-green/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+              <div className="p-6">
+                <h4 className="font-bold text-forest-green mb-2">{item.title}</h4>
+                <p className="text-xs text-gray-600 leading-relaxed">{item.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 };
 
 // --- Components ---
@@ -106,7 +333,7 @@ const Navbar = ({ activePage, setActivePage }: { activePage: Page, setActivePage
           </div>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex space-x-8">
+          <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -120,6 +347,19 @@ const Navbar = ({ activePage, setActivePage }: { activePage: Page, setActivePage
                 {item.label}
               </button>
             ))}
+            <a 
+              href={openWhatsApp("Hello Green View School, I'm visiting your website and would like to inquire about admissions.")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all ${
+                isSolid 
+                  ? 'bg-forest-green text-white hover:bg-golden-yellow hover:text-forest-green' 
+                  : 'bg-white text-forest-green hover:bg-golden-yellow'
+              }`}
+            >
+              <WhatsAppIcon size={16} />
+              WhatsApp
+            </a>
           </div>
 
           {/* Mobile Menu Button */}
@@ -155,6 +395,15 @@ const Navbar = ({ activePage, setActivePage }: { activePage: Page, setActivePage
                   {item.label}
                 </button>
               ))}
+              <a 
+                href={openWhatsApp("Hello Green View School, I'm visiting your website and would like to inquire about admissions.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 w-full mt-4 bg-[#25D366] text-white py-4 rounded-xl font-bold"
+              >
+                <WhatsAppIcon size={20} />
+                Chat on WhatsApp
+              </a>
             </div>
           </motion.div>
         )}
@@ -341,6 +590,9 @@ const HomePage = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
         </div>
       </section>
 
+      {/* Facilities & School Life Gallery */}
+      <FacilitiesGallery />
+
       {/* School Leadership Section */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -496,13 +748,15 @@ const HomePage = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
           </div>
 
           <div className="mt-12 flex justify-center">
-            <button 
-              onClick={() => openWhatsApp("Hello GVS, I am impressed by Alan Kiplagat's 421 marks! I want my child to achieve similar results. How do I start the enrollment process?")}
+            <a 
+              href={openWhatsApp("Hello GVS, I am impressed by Alan Kiplagat's 421 marks! I want my child to achieve similar results. How do I start the enrollment process?")}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center bg-forest-green text-white px-8 py-4 rounded-2xl font-bold hover:bg-golden-yellow hover:text-forest-green transition-all shadow-xl group"
             >
-              <MessageCircle className="mr-3 group-hover:scale-110 transition-transform" />
+              <WhatsAppIcon size={24} className="mr-3 group-hover:scale-110 transition-transform" />
               Inquire About Enrollment
-            </button>
+            </a>
           </div>
         </div>
       </section>
@@ -527,6 +781,57 @@ const HomePage = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
               <div className="text-4xl font-bold text-golden-yellow mb-2">500+</div>
               <div className="text-sm uppercase tracking-widest font-semibold">Happy Students</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Admission Assistant Section */}
+      <section className="py-24 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-golden-yellow/20 text-forest-green rounded-full font-bold text-sm mb-6">
+                <Sparkles size={18} className="text-golden-yellow" />
+                <span>Smart Admission Support</span>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-forest-green mb-8 leading-tight">
+                Not sure which grade <br />
+                <span className="text-golden-yellow">is right for your child?</span>
+              </h2>
+              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                Our AI-powered Admission Assistant is here to help! Based on the Kenyan CBC curriculum and your child's age, we can provide instant guidance on placement and school services.
+              </p>
+              <div className="space-y-4">
+                {[
+                  "Instant grade placement advice",
+                  "Information on school bus routes",
+                  "Answers to common enrollment questions",
+                  "Available 24/7 for parents"
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="bg-forest-green/10 p-1 rounded-full text-forest-green">
+                      <Check size={16} />
+                    </div>
+                    <span className="text-gray-700 font-medium">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute -top-10 -right-10 w-64 h-64 bg-golden-yellow/10 rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-forest-green/5 rounded-full blur-3xl"></div>
+              <AdmissionAssistant />
+            </motion.div>
           </div>
         </div>
       </section>
@@ -953,8 +1258,9 @@ const AdmissionsPage = ({ setActivePage }: { setActivePage: (p: Page) => void })
 
 const GalleryPage = () => {
   const images = [
+    { src: 'https://lh3.googleusercontent.com/d/1VyPsxcrmYGch1cqzCRoebXuD6vkXjY0B', title: 'Reliable School Bus Service' },
+    { src: 'https://lh3.googleusercontent.com/d/1kygBrSZB3e-oH3b3wK7Y2HGFzzzboA2P', title: 'PP2 Graduation Ceremony' },
     { src: 'https://lh3.googleusercontent.com/d/1PWuAtFAO_a3p9Z9nqLnvlbqV1YD1Xg_c', title: 'Our History & Legacy' },
-    { src: 'https://lh3.googleusercontent.com/d/1kygBrSZB3e-oH3b3wK7Y2HGFzzzboA2P', title: 'Pre-Primary Learning' },
     { src: 'https://lh3.googleusercontent.com/d/1NQ2bjYcTZxqf-ciye9D8iDWOKmY4gJ38', title: 'Primary School Excellence' },
     { src: 'https://lh3.googleusercontent.com/d/1C0M4h70INBvi7UarLhALE912mQwAqhdV', title: 'Junior Secondary School' },
     { src: 'https://lh3.googleusercontent.com/d/1PLrc85pQklvhyUyQq7tJHEhpCDRpi2yp', title: 'Athletics & Sports' },
@@ -1119,19 +1425,21 @@ export default function App() {
       </main>
 
       {/* Floating WhatsApp Button */}
-      <motion.button
+      <motion.a
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         whileHover={{ scale: 1.1 }}
-        onClick={() => openWhatsApp("Hello Greenview Academy, I am browsing your website and have a question. Please assist me.")}
-        className="fixed bottom-8 right-8 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl flex items-center justify-center group"
+        href={openWhatsApp("Hello Greenview Academy, I am browsing your website and have a question. Please assist me.")}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-8 right-8 z-[9999] bg-[#25D366] text-white p-4 rounded-full shadow-2xl flex items-center justify-center group"
       >
         <div className="absolute inset-0 bg-[#25D366] rounded-full animate-ping opacity-20"></div>
-        <MessageCircle size={32} className="relative z-10" />
+        <WhatsAppIcon size={32} className="relative z-10" />
         <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-3 transition-all duration-500 whitespace-nowrap font-bold">
           Chat with us
         </span>
-      </motion.button>
+      </motion.a>
 
       <Footer setActivePage={setActivePage} />
     </div>
