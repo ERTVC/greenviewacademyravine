@@ -43,8 +43,6 @@ import {
   Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
-
 // --- Types ---
 type Page = 'home' | 'about' | 'academics' | 'admissions' | 'gallery' | 'contact' | 'chat';
 
@@ -216,23 +214,27 @@ const AIVoiceCallModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
   const processUserQuery = async (query: string) => {
     setIsAiThinking(true);
     try {
-      const apiKey = (process.env as any).GEMINI_API_KEY;
-      if (!apiKey) throw new Error("API Key Missing");
-
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: query,
-        config: {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: query,
           systemInstruction: `You are the AI Voice Agent for Green View School. 
           Keep responses EXTREMELY concise (max 2 sentences) because this is a voice conversation.
           Be helpful, professional, and friendly. 
           School Location: Eldama Ravine.
           Contact: +254 711 894 460.`
-        }
+        })
       });
 
-      const text = response.text || "I'm sorry, I couldn't hear that clearly. Could you repeat?";
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get AI response");
+      }
+
+      const data = await response.json();
+      const text = data.text || "I'm sorry, I couldn't hear that clearly. Could you repeat?";
+
       speakText(text);
     } catch (error) {
       console.error(error);
@@ -434,19 +436,11 @@ const AdmissionAssistant = ({ className = "h-[500px]" }: { className?: string })
     setIsLoading(true);
 
     try {
-      // In this environment, process.env is defined via define in vite.config
-      const apiKey = (process.env as any).GEMINI_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error("Admission Assistant requires an API Key. Please ensure it is configured in the environment.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      const model = "gemini-3-flash-preview";
-      const response = await ai.models.generateContent({
-        model,
-        contents: userMessage,
-        config: {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: userMessage,
           systemInstruction: `You are the Admission Agent for Green View School in Eldama Ravine, Baringo County, Kenya. 
           Your goal is to help parents with grade placement, curriculum information, and general school inquiries.
           
@@ -479,17 +473,19 @@ const AdmissionAssistant = ({ className = "h-[500px]" }: { className?: string })
           - Mention the school bus (+254 711 894 460) if transport is mentioned.
           - Encourage them to visit the school or call our agent at +254 711 894 460.
           - Keep responses concise and helpful. Use bullet points for lists.`
-        }
+        })
       });
 
-      const aiText = response.text || "I'm sorry, I couldn't process that. Please try again or contact our office.";
-      setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get AI response");
+      }
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'ai', text: data.text }]);
     } catch (error: any) {
       console.error("AI Error:", error);
-      const errorMessage = error.message.includes("API Key") 
-        ? "Admission Agent is currently offline (API Key Missing). Please call us directly at +254 711 894 460."
-        : "I'm having a little trouble connecting right now. Please try again later or call us directly at +254 711 894 460!";
-      setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
+      setMessages(prev => [...prev, { role: 'ai', text: "I'm having a little trouble connecting right now. Please try again later or call us directly at +254 711 894 460!" }]);
     } finally {
       setIsLoading(false);
     }
