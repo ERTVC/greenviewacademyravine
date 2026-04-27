@@ -1,5 +1,5 @@
 {
   "name": "Green View School - Eldama Ravine",
   "description": "Official website for Green View School in Eldama Ravine, showcasing academic excellence, CBC curriculum, and holistic development.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone"]
 }

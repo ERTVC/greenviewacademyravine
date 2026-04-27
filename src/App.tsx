@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, 
   Users, 
@@ -30,16 +30,375 @@ import {
   Send,
   Bus,
   Sparkles,
-  Search
+  Search,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
+  PhoneCall,
+  PhoneOff,
+  PhoneIncoming,
+  Home,
+  Image as ImageIcon,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 
 // --- Types ---
-type Page = 'home' | 'about' | 'academics' | 'admissions' | 'gallery' | 'contact';
+type Page = 'home' | 'about' | 'academics' | 'admissions' | 'gallery' | 'contact' | 'chat';
 
 // --- Constants & Helpers ---
 const WHATSAPP_NUMBER = "254711894460";
+
+const CallAgent = ({ onOpenAICall }: { onOpenAICall: () => void }) => {
+  return (
+    <div className="hidden md:flex fixed bottom-6 right-6 z-[100] flex-col gap-4 items-end sm:bottom-10 sm:right-10">
+      {/* AI Voice Call FAB */}
+      <motion.button
+        whileHover={{ scale: 1.1, x: -5 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        onClick={onOpenAICall}
+        className="bg-golden-yellow text-forest-green p-4 rounded-2xl shadow-2xl flex items-center justify-center group relative border-2 border-white/20 overflow-visible"
+      >
+        <PhoneCall size={28} />
+        <span className="absolute right-full mr-4 bg-white text-forest-green px-4 py-2 rounded-xl font-bold text-sm opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap shadow-xl border border-gray-100 translate-x-2 group-hover:translate-x-0">
+          AI Voice Call Agent
+        </span>
+        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-forest-green opacity-40"></span>
+          <span className="relative inline-flex rounded-full h-4 w-4 bg-forest-green"></span>
+        </span>
+      </motion.button>
+
+      {/* WhatsApp FAB */}
+      <motion.a
+        whileHover={{ scale: 1.1, x: -5 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        href={openWhatsApp("Hello Green View School, I would like to speak to an admissions agent.")}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-[#25D366] text-white p-4 rounded-2xl shadow-2xl flex items-center justify-center group relative border-2 border-white/20"
+      >
+        <MessageCircle size={28} />
+        <span className="absolute right-full mr-4 bg-white text-forest-green px-4 py-2 rounded-xl font-bold text-sm opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap shadow-xl border border-gray-100 translate-x-2 group-hover:translate-x-0">
+          Chat with an Agent
+        </span>
+        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-4 w-4 bg-white"></span>
+        </span>
+      </motion.a>
+
+      {/* Phone FAB */}
+      <motion.a
+        whileHover={{ scale: 1.1, x: -5 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        href="tel:+254711894460"
+        className="bg-forest-green text-white p-4 rounded-2xl shadow-2xl flex items-center justify-center group relative border-2 border-white/20"
+      >
+        <Phone size={28} />
+        <span className="absolute right-full mr-4 bg-white text-forest-green px-4 py-2 rounded-xl font-bold text-sm opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap shadow-xl border border-gray-100 translate-x-2 group-hover:translate-x-0">
+          Call Admissions Office
+        </span>
+      </motion.a>
+    </div>
+  );
+};
+
+const AIVoiceCallModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  const [status, setStatus] = useState<'idle' | 'calling' | 'connected' | 'ended'>('idle');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [timer, setTimer] = useState(0);
+  const [aiResponse, setAiResponse] = useState("");
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+
+  useEffect(() => {
+    if (isOpen && status === 'idle') {
+      setStatus('calling');
+      const timeout = setTimeout(() => {
+        setStatus('connected');
+        // Initial AI greeting
+        speakText("Hello! You are speaking with the Green View School AI Agent. How can I help you today?");
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+    
+    if (!isOpen) {
+      handleEndCall();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    let interval: any;
+    if (status === 'connected') {
+      interval = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [status]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const speakText = (text: string) => {
+    if (!isSpeakerOn) return;
+    
+    // Stop any current speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Find a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const googleVoice = voices.find(v => v.name.includes("Google") && v.lang.includes("en"));
+    if (googleVoice) utterance.voice = googleVoice;
+    
+    utterance.onend = () => {
+      // Start listening after AI finishes speaking
+      startListening();
+    };
+    
+    window.speechSynthesis.speak(utterance);
+    setAiResponse(text);
+  };
+
+  const startListening = () => {
+    if (isMuted) return;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("Speech Recognition not supported");
+      return;
+    }
+
+    if (recognitionRef.current) recognitionRef.current.stop();
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const text = event.results[0][0].transcript;
+      setTranscript(text);
+      processUserQuery(text);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech Rec Error", event.error);
+      if (event.error === 'not-allowed') {
+        setError("Microphone access is denied. Please enable microphone permissions in your browser settings.");
+        setTimeout(() => handleEndCall(), 5000);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const processUserQuery = async (query: string) => {
+    setIsAiThinking(true);
+    try {
+      const apiKey = (process.env as any).GEMINI_API_KEY;
+      if (!apiKey) throw new Error("API Key Missing");
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: query,
+        config: {
+          systemInstruction: `You are the AI Voice Agent for Green View School. 
+          Keep responses EXTREMELY concise (max 2 sentences) because this is a voice conversation.
+          Be helpful, professional, and friendly. 
+          School Location: Eldama Ravine.
+          Contact: +254 711 894 460.`
+        }
+      });
+
+      const text = response.text || "I'm sorry, I couldn't hear that clearly. Could you repeat?";
+      speakText(text);
+    } catch (error) {
+      console.error(error);
+      speakText("I'm having a connection issue. Please call our office directly at zero seven one one, eight nine four, four six zero.");
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
+
+  const handleEndCall = () => {
+    setStatus('ended');
+    window.speechSynthesis.cancel();
+    if (recognitionRef.current) recognitionRef.current.stop();
+    setTimeout(() => {
+      onClose();
+      setStatus('idle');
+      setTimer(0);
+      setAiResponse("");
+      setError(null);
+    }, 1000);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[200] bg-forest-green flex flex-col items-center justify-between py-20 px-6 text-white"
+      >
+        <div className="flex flex-col items-center gap-6 mt-10">
+          <div className="relative">
+            <motion.div 
+              animate={status === 'connected' ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center border-2 border-white/20"
+            >
+              <Bot size={64} className="text-golden-yellow" />
+            </motion.div>
+            {(status === 'calling' || isAiThinking) && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full h-full rounded-full border-4 border-golden-yellow border-t-transparent animate-spin"></div>
+              </div>
+            )}
+          </div>
+          
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-2">
+              {status === 'calling' ? 'Calling AI Agent...' : status === 'connected' ? 'Green View AI Agent' : 'Call Ended'}
+            </h2>
+            {error ? (
+              <p className="text-red-400 font-bold animate-pulse">{error}</p>
+            ) : (
+              <p className="text-golden-yellow font-mono text-xl tracking-widest">
+                {status === 'connected' ? formatTime(timer) : 'Green View School'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full max-w-md text-center px-4 min-h-[100px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {isAiThinking ? (
+              <motion.div 
+                key="thinking"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex gap-2"
+              >
+                <div className="w-2 h-2 bg-golden-yellow rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-golden-yellow rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 bg-golden-yellow rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              </motion.div>
+            ) : (
+              <motion.p 
+                key="response"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-lg italic text-gray-200"
+              >
+                {aiResponse || "Listening..."}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="grid grid-cols-3 gap-12 w-full max-w-sm mb-10">
+          <div className="flex flex-col items-center gap-2">
+            <button 
+              onClick={() => setIsMuted(!isMuted)}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isMuted ? 'bg-white text-forest-green shadow-xl' : 'bg-white/10 text-white'}`}
+            >
+              {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
+            </button>
+            <span className="text-xs font-semibold opacity-60 uppercase tracking-tighter">Mute</span>
+          </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <button 
+              onClick={handleEndCall}
+              className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600 transition-colors"
+            >
+              <PhoneOff size={32} />
+            </button>
+            <span className="text-xs font-bold text-red-400 uppercase">End Call</span>
+          </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <button 
+              onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isSpeakerOn ? 'bg-white text-forest-green shadow-xl' : 'bg-white/10 text-white'}`}
+            >
+              {isSpeakerOn ? <Volume2 size={28} /> : <VolumeX size={28} />}
+            </button>
+            <span className="text-xs font-semibold opacity-60 uppercase tracking-tighter">Speaker</span>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+const BottomNav = ({ activePage, setActivePage }: { activePage: Page, setActivePage: (p: Page) => void }) => {
+  const navItems: { label: string; id: Page; icon: any }[] = [
+    { label: 'Home', id: 'home', icon: Home },
+    { label: 'About', id: 'about', icon: Users },
+    { label: 'Classes', id: 'academics', icon: BookOpen },
+    { label: 'Chat', id: 'chat', icon: Bot },
+    { label: 'Gallery', id: 'gallery', icon: ImageIcon },
+    { label: 'Contact', id: 'contact', icon: MessageSquare },
+  ];
+
+  return (
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[110] bg-white border-t border-gray-100 px-6 pb-safe pt-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+      <div className="flex justify-between items-center max-w-lg mx-auto">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activePage === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActivePage(item.id)}
+              className="flex flex-col items-center gap-1 min-w-[64px] transition-all relative py-1"
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${isActive ? 'bg-forest-green text-white scale-110' : 'bg-transparent text-gray-400'}`}>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+              </div>
+              <span className={`text-[10px] font-bold transition-all ${isActive ? 'text-forest-green' : 'text-gray-400'}`}>
+                {item.label}
+              </span>
+              {isActive && (
+                <motion.div 
+                  layoutId="bottomNavDot"
+                  className="absolute -top-1 w-1 h-1 bg-forest-green rounded-full shadow-[0_0_8px_rgba(45,90,39,0.5)]" 
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const WhatsAppIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
   <svg 
@@ -59,7 +418,7 @@ const openWhatsApp = (message: string) => {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
 };
 
-const AdmissionAssistant = () => {
+const AdmissionAssistant = ({ className = "h-[500px]" }: { className?: string }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
     { role: 'ai', text: "Hello! I'm your Green View School Admission Assistant. Not sure which grade is right for your child? Tell me their age or current level, and I'll help you out!" }
@@ -75,17 +434,20 @@ const AdmissionAssistant = () => {
     setIsLoading(true);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      // In this environment, process.env is defined via define in vite.config
+      const apiKey = (process.env as any).GEMINI_API_KEY;
+      
       if (!apiKey) {
-        throw new Error("Gemini API key is not configured.");
+        throw new Error("Admission Assistant requires an API Key. Please ensure it is configured in the environment.");
       }
+
       const ai = new GoogleGenAI({ apiKey });
       const model = "gemini-3-flash-preview";
       const response = await ai.models.generateContent({
         model,
         contents: userMessage,
         config: {
-          systemInstruction: `You are the Admission Assistant for Green View School in Eldama Ravine, Baringo County, Kenya. 
+          systemInstruction: `You are the Admission Agent for Green View School in Eldama Ravine, Baringo County, Kenya. 
           Your goal is to help parents with grade placement, curriculum information, and general school inquiries.
           
           School Details:
@@ -95,18 +457,11 @@ const AdmissionAssistant = () => {
           - Vision: "To be a premier institution of academic excellence and holistic development, nurturing responsible and innovative leaders for the future."
           - Mission: "To provide a safe, nurturing, and challenging learning environment that fosters discipline, integrity, and academic success through the CBC and Junior Secondary School curriculum."
           - Core Values: Quality Instruction, Transparency, Safety, and Integrity.
-          - History: 15+ years of excellence in education.
           
           Academic Programs:
           - Early Years: PP1 (4 years old) and PP2 (5 years old).
           - Primary School: Grade 1 to 6 (CBC Curriculum).
           - Junior Secondary School (JSS): Grade 7 to 9.
-          - Known for top performance in KCPE (e.g., Alan Kiplagat with 421 marks).
-          
-          Facilities & Services:
-          - Reliable school bus service covering Eldama Ravine and its environs.
-          - Modern classrooms, Science Laboratory for JSS, and a safe playground.
-          - Extracurriculars: Music, Drama, Athletics, and various Clubs.
           
           Placement Logic:
           - 4 years: PP1
@@ -121,25 +476,27 @@ const AdmissionAssistant = () => {
           
           Guidelines:
           - Be polite, professional, and encouraging.
-          - Mention the school bus if the parent asks about transport.
-          - If asked about fees, provide general info (competitive/affordable) but refer them to the admissions office for the latest fee structure.
-          - Encourage them to visit the school or contact the office at +254 711 894 460.
-          - Keep responses concise and helpful.`
+          - Mention the school bus (+254 711 894 460) if transport is mentioned.
+          - Encourage them to visit the school or call our agent at +254 711 894 460.
+          - Keep responses concise and helpful. Use bullet points for lists.`
         }
       });
 
       const aiText = response.text || "I'm sorry, I couldn't process that. Please try again or contact our office.";
       setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'ai', text: "I'm having a little trouble connecting right now. Please try again later or call us directly!" }]);
+      const errorMessage = error.message.includes("API Key") 
+        ? "Admission Agent is currently offline (API Key Missing). Please call us directly at +254 711 894 460."
+        : "I'm having a little trouble connecting right now. Please try again later or call us directly at +254 711 894 460!";
+      setMessages(prev => [...prev, { role: 'ai', text: errorMessage }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col h-[500px]">
+    <div className={`bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col ${className}`}>
       <div className="bg-forest-green p-6 text-white flex items-center gap-4">
         <div className="bg-golden-yellow p-2 rounded-xl text-forest-green">
           <Bot size={24} />
@@ -360,54 +717,34 @@ const Navbar = ({ activePage, setActivePage }: { activePage: Page, setActivePage
               <WhatsAppIcon size={16} />
               WhatsApp
             </a>
+            <a 
+              href="tel:+254711894460"
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all shadow-md group ${
+                isSolid 
+                  ? 'bg-golden-yellow text-forest-green hover:bg-forest-green hover:text-white' 
+                  : 'bg-white text-forest-green hover:bg-golden-yellow shadow-lg'
+              }`}
+            >
+              <Phone size={16} className="group-hover:rotate-12 transition-transform" />
+              Call Agent
+            </a>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <button onClick={() => setIsOpen(!isOpen)} className={isSolid ? 'text-forest-green' : 'text-white'}>
-              {isOpen ? <X size={28} /> : <Menu size={28} />}
-            </button>
+          {/* Mobile Actions (Hidden when using BottomNav) */}
+          <div className="md:hidden flex items-center gap-3">
+             <a 
+              href="tel:+254711894460"
+              className={`p-2 rounded-xl transition-all shadow-md ${
+                isSolid 
+                  ? 'bg-golden-yellow text-forest-green' 
+                  : 'bg-white text-forest-green shadow-lg'
+              }`}
+            >
+              <Phone size={20} />
+            </a>
           </div>
         </div>
       </div>
-
-      {/* Mobile Nav */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
-          >
-            <div className="px-4 pt-2 pb-6 space-y-1">
-              {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActivePage(item.id);
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left px-3 py-3 text-base font-medium rounded-md ${
-                    activePage === item.id ? 'bg-forest-green text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-              <a 
-                href={openWhatsApp("Hello Green View School, I'm visiting your website and would like to inquire about admissions.")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-3 w-full mt-4 bg-[#25D366] text-white py-4 rounded-xl font-bold"
-              >
-                <WhatsAppIcon size={20} />
-                Chat on WhatsApp
-              </a>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </nav>
   );
 };
@@ -416,7 +753,7 @@ const Footer = ({ setActivePage }: { setActivePage: (p: Page) => void }) => {
   const [logoError, setLogoError] = useState(false);
 
   return (
-    <footer className="bg-forest-green text-white pt-16 pb-8">
+    <footer className="bg-forest-green text-white pt-16 pb-24 md:pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-1 md:col-span-1">
@@ -1401,10 +1738,79 @@ const ContactPage = () => {
   );
 };
 
+const ChatPage = () => {
+  return (
+    <>
+      <div className="md:hidden pt-24 pb-12 px-4 bg-gray-50 min-h-screen">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-8 text-center px-4">
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="inline-flex items-center gap-2 bg-golden-yellow/20 text-forest-green px-4 py-2 rounded-full font-bold text-sm mb-4"
+            >
+              <Sparkles size={16} />
+              AI-Powered Assistant
+            </motion.div>
+            <h2 className="text-3xl font-bold text-forest-green mb-2">Admission Agent</h2>
+            <p className="text-gray-600">Ask any questions about Green View School admissions, curriculum, transport, or fees.</p>
+          </div>
+          
+          <div className="h-[600px]">
+            <AdmissionAssistant className="h-full" />
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+              <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
+                <Phone size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Quick Call</p>
+                <a href="tel:+254711894460" className="text-forest-green font-bold hover:underline">+254 711 894 460</a>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+              <div className="bg-[#E7F9ED] p-3 rounded-xl text-[#25D366]">
+                <MessageCircle size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Direct WhatsApp</p>
+                <a href={openWhatsApp("I'm using your AI chat and have a specific question about admissions.")} target="_blank" rel="noopener noreferrer" className="text-forest-green font-bold hover:underline">Start WhatsApp Chat</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Fallback */}
+      <div className="hidden md:flex pt-32 pb-24 px-4 bg-white min-h-screen items-center justify-center text-center">
+        <div className="max-w-md">
+          <div className="bg-forest-green/5 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Smartphone className="text-forest-green" size={48} />
+          </div>
+          <h2 className="text-3xl font-bold text-forest-green mb-4">Mobile Only Feature</h2>
+          <p className="text-gray-600 mb-10 text-lg leading-relaxed">
+            The AI Admission Assistant is designed and optimized for mobile devices. 
+            Please visit this site on your smartphone to start a conversation with our agent.
+          </p>
+          <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 inline-block mb-8">
+            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Scan to visit on mobile</p>
+            <div className="w-40 h-40 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-300 font-mono text-xs">
+              [QR Code Placeholder]
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('home');
+  const [isAICallOpen, setIsAICallOpen] = useState(false);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -1415,31 +1821,21 @@ export default function App() {
     <div className="min-h-screen font-sans text-gray-900 bg-white selection:bg-golden-yellow selection:text-forest-green">
       <Navbar activePage={activePage} setActivePage={setActivePage} />
       
-      <main>
+      <main className="pb-20 md:pb-0">
         {activePage === 'home' && <HomePage setActivePage={setActivePage} />}
         {activePage === 'about' && <AboutPage />}
         {activePage === 'academics' && <AcademicsPage setActivePage={setActivePage} />}
         {activePage === 'admissions' && <AdmissionsPage setActivePage={setActivePage} />}
+        {activePage === 'chat' && <ChatPage />}
         {activePage === 'gallery' && <GalleryPage />}
         {activePage === 'contact' && <ContactPage />}
       </main>
 
-      {/* Floating WhatsApp Button */}
-      <motion.a
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        whileHover={{ scale: 1.1 }}
-        href={openWhatsApp("Hello Greenview Academy, I am browsing your website and have a question. Please assist me.")}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-8 right-8 z-[9999] bg-[#25D366] text-white p-4 rounded-full shadow-2xl flex items-center justify-center group"
-      >
-        <div className="absolute inset-0 bg-[#25D366] rounded-full animate-ping opacity-20"></div>
-        <WhatsAppIcon size={32} className="relative z-10" />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-3 transition-all duration-500 whitespace-nowrap font-bold">
-          Chat with us
-        </span>
-      </motion.a>
+      <CallAgent onOpenAICall={() => setIsAICallOpen(true)} />
+
+      <BottomNav activePage={activePage} setActivePage={setActivePage} />
+
+      <AIVoiceCallModal isOpen={isAICallOpen} onClose={() => setIsAICallOpen(false)} />
 
       <Footer setActivePage={setActivePage} />
     </div>
